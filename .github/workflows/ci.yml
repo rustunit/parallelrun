@@ -35,6 +35,9 @@ jobs:
     - name: Rustup Show
       run: rustup show
 
+    - name: Cargo fmt --check
+      run: cargo fmt --all -- --check
+
     - name: Cargo Check
       run: cargo c
 
