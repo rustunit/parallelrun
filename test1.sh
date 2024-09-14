@@ -1,4 +1,3 @@
-
-printf "wait 3\n"
+echo "wait 3"
 sleep 3
 echo "waited 3"
