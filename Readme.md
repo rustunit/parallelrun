@@ -9,5 +9,6 @@ Supported Options:
 
 # TODO
 
+- [ ] forward SIGINT to subprocesses instead of instant kill on `Ctrl+C`
 - [ ] windows support
 - [ ] support more arguments
