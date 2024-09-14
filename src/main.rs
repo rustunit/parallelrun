@@ -12,8 +12,18 @@ use nix::libc::SIGTERM;
 #[derive(Default, Parser, Debug)]
 #[command(version)]
 struct Arguments {
-    #[arg(default_value_t = false, short, long)]
+    #[arg(
+        default_value_t = false,
+        short,
+        long,
+        help = "Kill other processes if one exits or dies. [bool]"
+    )]
     kill_others: bool,
+
+    #[arg(
+        value_name = "COMMANDS",
+        help = "List of commands to run. String escaped and space separated. ['cmd1' 'cmd2'...]"
+    )]
     cmd: Vec<String>,
 }
 
