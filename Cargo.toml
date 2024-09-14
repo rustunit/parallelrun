@@ -1,0 +1,17 @@
+[package]
+name = "parallelrun"
+version = "0.1.0"
+edition = "2021"
+authors = ["extrawurst <mail@rusticorn.com>"]
+description = "Runs several commands concurrently"
+homepage = "https://github.com/rustunit/parallelrun"
+repository = "https://github.com/rustunit/parallelrun"
+readme = "Readme.md"
+license = "MIT"
+categories = ["command-line-utilities"]
+keywords = ["cli", "terminal", "ui"]
+
+[dependencies]
+nix = "0.29"
+crossbeam = "0.8"
+clap = { version = "4.5", features = ["derive"] }
