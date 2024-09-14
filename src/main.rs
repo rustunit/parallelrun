@@ -19,7 +19,6 @@ struct Arguments {
 
 fn main() {
     let args = Arguments::parse();
-    println!("args: {args:?}");
 
     spawn_cmds(&args.cmd, args.kill_others);
 }
@@ -99,12 +98,13 @@ fn sig_term(pid: u32) {
 }
 
 fn spawn_child(idx: usize, cmd: &str) -> Child {
+    //TODO: support windows
     let mut child = Command::new("sh")
         .arg("-c")
         .arg(cmd)
         .stdout(Stdio::piped())
         .spawn()
-        .expect("failed to execute process");
+        .expect("failed to spawn child process");
 
     let child_out = child.stdout.take().expect("Failed to open stdout");
     std::thread::spawn(move || {
@@ -115,7 +115,9 @@ fn spawn_child(idx: usize, cmd: &str) -> Child {
 
         for line in stdout_lines.map_while(Result::ok) {
             print!("[{idx}] ");
-            stdout.write_all(line.as_bytes()).unwrap();
+            stdout
+                .write_all(line.as_bytes())
+                .expect("Failed to write to stdout");
             println!();
         }
     });
