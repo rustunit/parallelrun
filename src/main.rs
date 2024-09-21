@@ -7,7 +7,6 @@ use std::{
 
 use clap::Parser;
 use crossbeam::channel::bounded;
-use nix::libc::SIGTERM;
 
 #[derive(Default, Parser, Debug)]
 #[command(version)]
@@ -98,12 +97,17 @@ fn process_killer(pids: Vec<u32>) {
     }
 }
 
-//TODO: impl windows via `taskkill`
-// see `child_process.execSync(`taskkill /f /t /pid ${child.pid}`);`
-// from nodejs impl: https://github.com/nodejs/node/blob/cb20c5b9f46c64d28bf495814fec5fe8a89b663d/benchmark/child_process/child-process-read.js#L35
 fn sig_term(pid: u32) {
-    unsafe {
-        nix::libc::kill(pid as i32, SIGTERM);
+    use sysinfo::{Pid, Signal, System, SUPPORTED_SIGNALS};
+    let pid = Pid::from_u32(pid);
+    let s = System::new_all();
+
+    if let Some(process) = s.process(pid) {
+        if SUPPORTED_SIGNALS.contains(&Signal::Term) {
+            process.kill_with(Signal::Term).expect("kill_with failed");
+        } else {
+            process.kill();
+        }
     }
 }
 

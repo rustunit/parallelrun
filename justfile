@@ -1,3 +1,6 @@
+default:
+    just --list
+
 test-js:
     concurrently ./test1.sh ./test2.sh
 
