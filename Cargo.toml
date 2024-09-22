@@ -15,3 +15,14 @@ keywords = ["cli", "terminal", "ui"]
 nix = "0.29"
 crossbeam = "0.8"
 clap = { version = "4.5", features = ["derive"] }
+
+[workspace.lints.rust]
+warnings = "deny"
+unused_imports = "deny"
+unused_variables = "deny"
+unused_mut = "deny"
+dead_code = "warn"
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+all = "deny"
