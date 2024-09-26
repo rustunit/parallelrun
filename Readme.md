@@ -20,6 +20,12 @@ Supported and tested on Linux, MacOS and Windows.
 Supported Options:
 * `--kill-others` (terminates all other commands as soon as one exits)
 
+# Installation
+
+```
+cargo install parallelrun
+```
+
 # Example
 
 ```sh
