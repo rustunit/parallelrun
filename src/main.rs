@@ -125,7 +125,6 @@ fn sig_term(pid: u32) {
 }
 
 fn spawn_child(idx: usize, cmd: &str) -> Child {
-    //TODO: support windows
     let mut child = Command::new("sh")
         .arg("-c")
         .arg(cmd)
