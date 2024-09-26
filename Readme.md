@@ -4,6 +4,8 @@
 [![ci][sh_ci]][lk_ci]
 [![discord][sh_discord]][lk_discord]
 
+![logo](./logo.png)
+
 [sh_crates]: https://img.shields.io/crates/v/parallelrun.svg
 [lk_crates]: https://crates.io/crates/parallelrun
 [sh_ci]: https://github.com/rustunit/parallelrun/workflows/ci/badge.svg
