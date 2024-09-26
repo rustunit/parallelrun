@@ -1,6 +1,5 @@
 use std::{
     io::{BufRead, BufReader, Write},
-    os::unix::process::ExitStatusExt,
     process::{Child, Command, Stdio},
     thread::JoinHandle,
 };
@@ -50,20 +49,7 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
                 let result = process.wait();
 
                 let code = match result {
-                    Ok(status) => {
-                        if let Some(signal) = status.signal() {
-                            //TODO: is there a library for SIG to String?
-                            if signal == 15 {
-                                String::from("SIGTERM")
-                            } else {
-                                format!("SIG:{signal}")
-                            }
-                        } else if let Some(code) = status.code() {
-                            format!("{code}")
-                        } else {
-                            unreachable!()
-                        }
-                    }
+                    Ok(status) => status_to_string(status),
                     Err(_) => String::from("?"),
                 };
 
@@ -90,6 +76,33 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
     }
 }
 
+#[cfg(unix)]
+fn status_to_string(status: std::process::ExitStatus) -> String {
+    use std::os::unix::process::ExitStatusExt;
+
+    if let Some(signal) = status.signal() {
+        //TODO: is there a library for SIG to String?
+        if signal == 15 {
+            String::from("SIGTERM")
+        } else {
+            format!("SIG:{signal}")
+        }
+    } else if let Some(code) = status.code() {
+        format!("{code}")
+    } else {
+        unreachable!()
+    }
+}
+
+#[cfg(not(unix))]
+fn status_to_string(status: std::process::ExitStatus) -> String {
+    if let Some(code) = status.code() {
+        format!("{code}")
+    } else {
+        unreachable!()
+    }
+}
+
 fn process_killer(pids: Vec<u32>) {
     println!("--> Sending SIGTERM to other processes..");
     for pid in pids {
@@ -112,7 +125,6 @@ fn sig_term(pid: u32) {
 }
 
 fn spawn_child(idx: usize, cmd: &str) -> Child {
-    //TODO: support windows
     let mut child = Command::new("sh")
         .arg("-c")
         .arg(cmd)
