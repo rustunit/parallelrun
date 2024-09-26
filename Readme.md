@@ -4,14 +4,14 @@
 [![ci][sh_ci]][lk_ci]
 [![discord][sh_discord]][lk_discord]
 
-![logo](./logo.png)
-
 [sh_crates]: https://img.shields.io/crates/v/parallelrun.svg
 [lk_crates]: https://crates.io/crates/parallelrun
 [sh_ci]: https://github.com/rustunit/parallelrun/workflows/ci/badge.svg
 [lk_ci]: https://github.com/rustunit/parallelrun/actions
 [sh_discord]: https://img.shields.io/discord/1176858176897953872?label=discord&color=5561E6
 [lk_discord]: https://discord.gg/rQNeEnMhus
+
+![logo](./logo.png)
 
 Runs several commands concurrently.
 
@@ -21,6 +21,10 @@ Supported and tested on Linux, MacOS and Windows.
 
 Supported Options:
 * `--kill-others` (terminates all other commands as soon as one exits)
+
+# Demo
+
+[![demo](https://asciinema.org/a/677736.svg)](https://asciinema.org/a/677736?autoplay=1)
 
 # Installation
 
