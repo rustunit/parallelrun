@@ -1,6 +1,5 @@
 use std::{
     io::{BufRead, BufReader, Write},
-    os::unix::process::ExitStatusExt,
     process::{Child, Command, Stdio},
     thread::JoinHandle,
 };
@@ -50,20 +49,7 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
                 let result = process.wait();
 
                 let code = match result {
-                    Ok(status) => {
-                        if let Some(signal) = status.signal() {
-                            //TODO: is there a library for SIG to String?
-                            if signal == 15 {
-                                String::from("SIGTERM")
-                            } else {
-                                format!("SIG:{signal}")
-                            }
-                        } else if let Some(code) = status.code() {
-                            format!("{code}")
-                        } else {
-                            unreachable!()
-                        }
-                    }
+                    Ok(status) => status_to_string(status),
                     Err(_) => String::from("?"),
                 };
 
@@ -87,6 +73,33 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
 
     for (_, handle) in handles {
         let _ = handle.join();
+    }
+}
+
+#[cfg(unix)]
+fn status_to_string(status: std::process::ExitStatus) -> String {
+    use std::os::unix::process::ExitStatusExt;
+
+    if let Some(signal) = status.signal() {
+        //TODO: is there a library for SIG to String?
+        if signal == 15 {
+            String::from("SIGTERM")
+        } else {
+            format!("SIG:{signal}")
+        }
+    } else if let Some(code) = status.code() {
+        format!("{code}")
+    } else {
+        unreachable!()
+    }
+}
+
+#[cfg(not(unix))]
+fn status_to_string(status: std::process::ExitStatus) -> String {
+    if let Some(code) = status.code() {
+        format!("{code}")
+    } else {
+        unreachable!()
     }
 }
 
