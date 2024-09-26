@@ -15,6 +15,8 @@ Runs several commands concurrently.
 
 Heavily inspired by the `nodejs` tool [concurrently](https://www.npmjs.com/package/concurrently). 
 
+Supported and tested on Linux, MacOS and Windows.
+
 Supported Options:
 * `--kill-others` (terminates all other commands as soon as one exits)
 
@@ -32,5 +34,4 @@ $ parallelrun --kill-others "echo wait 2 && sleep 2" "echo wait 3 && sleep 3"
 # TODO
 
 - [ ] forward SIGINT to subprocesses instead of instant kill on `Ctrl+C`
-- [ ] windows support
 - [ ] support more `concurrently` arguments
