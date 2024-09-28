@@ -1,3 +1,5 @@
+mod cmd_ex;
+
 use std::{
     io::{BufRead, BufReader, Write},
     process::{Child, Command, Stdio},
@@ -5,6 +7,7 @@ use std::{
 };
 
 use clap::Parser;
+use cmd_ex::CommandExt;
 use crossbeam::channel::bounded;
 
 #[derive(Default, Parser, Debug)]
@@ -128,6 +131,7 @@ fn spawn_child(idx: usize, cmd: &str) -> Child {
     let mut child = Command::new("sh")
         .arg("-c")
         .arg(cmd)
+        .with_no_window()
         .stdout(Stdio::piped())
         .spawn()
         .expect("failed to spawn child process");
