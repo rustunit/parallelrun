@@ -3,12 +3,24 @@ mod cmd_ex;
 use std::{
     io::{BufRead, BufReader, Write},
     process::{Child, Command, Stdio},
-    thread::JoinHandle,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::{self, JoinHandle},
 };
 
 use clap::Parser;
 use cmd_ex::CommandExt;
-use crossbeam::channel::bounded;
+use crossbeam::channel::{bounded, Receiver};
+use signal_hook::{
+    consts::{
+        SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGSEGV,
+        SIGTERM,
+    },
+    iterator::Signals,
+};
+use sysinfo::Signal;
 
 #[derive(Default, Parser, Debug)]
 #[command(version)]
@@ -28,23 +40,46 @@ struct Arguments {
     cmd: Vec<String>,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let args = Arguments::parse();
 
-    spawn_cmds(&args.cmd, args.kill_others);
+    let mut signals = Signals::new([SIGTERM, SIGINT, SIGHUP, SIGKILL, SIGQUIT])?;
+    let (tx, rx) = bounded::<Signal>(1);
+
+    thread::spawn(move || {
+        let tx = tx.clone();
+        for sig in signals.forever() {
+            if sig != SIGINT {
+                tx.send(match sig {
+                    SIGINT => Signal::Interrupt,
+                    SIGHUP => Signal::Hangup,
+                    SIGKILL => Signal::Kill,
+                    SIGQUIT => Signal::Quit,
+                    _ => Signal::Term,
+                })
+                .expect("problem sending signal");
+            }
+        }
+    });
+
+    spawn_cmds(&args.cmd, args.kill_others, rx)
 }
 
-fn spawn_cmds(args: &[String], kill_others: bool) {
-    let proceses = args
+fn spawn_cmds(
+    args: &[String],
+    kill_others: bool,
+    signal_receiver: Receiver<Signal>,
+) -> anyhow::Result<()> {
+    let processes = args
         .iter()
         .enumerate()
         .map(|(i, arg)| (i, arg.to_string(), spawn_child(i, arg)))
         .collect::<Vec<(usize, String, Child)>>();
 
     let mut handles: Vec<(u32, JoinHandle<()>)> = vec![];
-    let (tx, rx) = bounded(1);
+    let (tx, rx) = bounded::<Signal>(1);
 
-    for (i, cmd, mut process) in proceses {
+    for (i, cmd, mut process) in processes {
         let tx = tx.clone();
         handles.push((
             process.id(),
@@ -59,17 +94,36 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
                 println!("[{i}] {cmd} exited with code {code}");
 
                 if kill_others {
-                    let _ = tx.send(());
+                    let _ = tx.send(Signal::Term);
                 }
             }),
         ));
     }
 
+    let process_ids = handles.iter().map(|(id, _)| *id).collect::<Vec<_>>();
+
+    let signal_in_flight = Arc::new(AtomicBool::new(false));
+
+    thread::spawn({
+        let pids = process_ids.clone();
+        let signal_in_flight = signal_in_flight.clone();
+        move || {
+            if let Ok(signal) = signal_receiver.recv() {
+                signal_in_flight.store(true, Ordering::Relaxed);
+                process_killer(pids, signal);
+            }
+        }
+    });
+
     if kill_others {
-        let pids = handles.iter().map(|(id, _)| *id).collect::<Vec<_>>();
-        std::thread::spawn(move || {
-            if rx.recv().is_ok() {
-                process_killer(pids);
+        thread::spawn({
+            let signal_in_flight = signal_in_flight.clone();
+            move || {
+                if let Ok(signal) = rx.recv() {
+                    if !signal_in_flight.load(Ordering::Relaxed) {
+                        process_killer(process_ids, signal);
+                    }
+                }
             }
         });
     }
@@ -77,6 +131,8 @@ fn spawn_cmds(args: &[String], kill_others: bool) {
     for (_, handle) in handles {
         let _ = handle.join();
     }
+
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -84,16 +140,30 @@ fn status_to_string(status: std::process::ExitStatus) -> String {
     use std::os::unix::process::ExitStatusExt;
 
     if let Some(signal) = status.signal() {
-        //TODO: is there a library for SIG to String?
-        if signal == 15 {
-            String::from("SIGTERM")
-        } else {
-            format!("SIG:{signal}")
-        }
+        signal_as_string(signal).into()
     } else if let Some(code) = status.code() {
         format!("{code}")
     } else {
         unreachable!()
+    }
+}
+
+#[allow(non_snake_case)]
+fn signal_as_string(sig: i32) -> &'static str {
+    //TODO: is there a library for SIG to String?
+    match sig {
+        SIGHUP => "SIGHUP",
+        SIGINT => "SIGINT",
+        SIGQUIT => "SIGQUIT",
+        SIGILL => "SIGILL",
+        SIGABRT => "SIGABRT",
+        SIGFPE => "SIGFPE",
+        SIGKILL => "SIGKILL",
+        SIGSEGV => "SIGSEGV",
+        SIGPIPE => "SIGPIPE",
+        SIGALRM => "SIGALRM",
+        SIGTERM => "SIGTERM",
+        _ => "Unknown Signal",
     }
 }
 
@@ -106,21 +176,21 @@ fn status_to_string(status: std::process::ExitStatus) -> String {
     }
 }
 
-fn process_killer(pids: Vec<u32>) {
-    println!("--> Sending SIGTERM to other processes..");
-    for pid in pids {
-        sig_term(pid);
+fn process_killer(process_ids: Vec<u32>, sig: Signal) {
+    println!("--> Sending {sig} Signal to other processes..");
+    for pid in process_ids {
+        sig_term(pid, sig);
     }
 }
 
-fn sig_term(pid: u32) {
-    use sysinfo::{Pid, Signal, System, SUPPORTED_SIGNALS};
+fn sig_term(pid: u32, sig: Signal) {
+    use sysinfo::{Pid, System, SUPPORTED_SIGNALS};
     let pid = Pid::from_u32(pid);
     let s = System::new_all();
 
     if let Some(process) = s.process(pid) {
-        if SUPPORTED_SIGNALS.contains(&Signal::Term) {
-            process.kill_with(Signal::Term).expect("kill_with failed");
+        if SUPPORTED_SIGNALS.contains(&sig) {
+            process.kill_with(sig).expect("kill_with failed");
         } else {
             process.kill();
         }

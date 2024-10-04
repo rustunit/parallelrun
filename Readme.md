@@ -45,5 +45,4 @@ $ parallelrun --kill-others "echo wait 2 && sleep 2" "echo wait 3 && sleep 3"
 
 # TODO
 
-- [ ] forward SIGINT to subprocesses instead of instant kill on `Ctrl+C`
 - [ ] support more `concurrently` arguments
