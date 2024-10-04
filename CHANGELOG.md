@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.3.2] - 2024-10-04
+
+### Fixes
+* Fix Windows build
+
 ## [0.3.1] - 2024-10-04
 
 ### Fixes
@@ -15,9 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2024-10-04
 
 ### Added
-* signals sent to parallelrun will be forwarded to child processes (supports SIGTERM, SIGINT, SIGHUP, SIGKILL, SIGQUIT)
+* Signals sent to parallelrun will be forwarded to child processes (supports SIGTERM, SIGINT, SIGHUP, SIGKILL, SIGQUIT)
 
 ## [0.2.0] - 2024-09-26
 
 ### Added
-* add windows support and ci
+* Add windows support and ci

@@ -13,13 +13,6 @@ use std::{
 use clap::Parser;
 use cmd_ex::CommandExt;
 use crossbeam::channel::{bounded, Receiver};
-use signal_hook::{
-    consts::{
-        SIGABRT, SIGALRM, SIGFPE, SIGHUP, SIGILL, SIGINT, SIGKILL, SIGPIPE, SIGQUIT, SIGSEGV,
-        SIGTERM,
-    },
-    iterator::Signals,
-};
 use sysinfo::Signal;
 
 #[derive(Default, Parser, Debug)]
@@ -43,32 +36,44 @@ struct Arguments {
 fn main() -> anyhow::Result<()> {
     let args = Arguments::parse();
 
-    let mut signals = Signals::new([SIGTERM, SIGINT, SIGHUP, SIGQUIT])?;
-    let (tx, rx) = bounded::<Signal>(1);
+    spawn_cmds(&args.cmd, args.kill_others, register_signals()?)
+}
 
-    thread::spawn(move || {
-        let tx = tx.clone();
-        for sig in signals.forever() {
-            if sig != SIGINT {
-                tx.send(match sig {
-                    SIGINT => Signal::Interrupt,
-                    SIGHUP => Signal::Hangup,
-                    SIGKILL => Signal::Kill,
-                    SIGQUIT => Signal::Quit,
-                    _ => Signal::Term,
-                })
-                .expect("problem sending signal");
+fn register_signals() -> anyhow::Result<Option<Receiver<Signal>>> {
+    #[cfg(unix)]
+    {
+        use signal_hook::{consts::*, iterator::Signals};
+
+        let (tx, rx) = bounded::<Signal>(1);
+        let mut signals = Signals::new([SIGTERM, SIGINT, SIGHUP, SIGQUIT])?;
+
+        thread::spawn(move || {
+            let tx = tx.clone();
+            for sig in signals.forever() {
+                if sig != SIGINT {
+                    tx.send(match sig {
+                        SIGINT => Signal::Interrupt,
+                        SIGHUP => Signal::Hangup,
+                        SIGKILL => Signal::Kill,
+                        SIGQUIT => Signal::Quit,
+                        _ => Signal::Term,
+                    })
+                    .expect("problem sending signal");
+                }
             }
-        }
-    });
+        });
 
-    spawn_cmds(&args.cmd, args.kill_others, rx)
+        Ok(Some(rx))
+    }
+
+    #[cfg(not(unix))]
+    Ok(None)
 }
 
 fn spawn_cmds(
     args: &[String],
     kill_others: bool,
-    signal_receiver: Receiver<Signal>,
+    signal_receiver: Option<Receiver<Signal>>,
 ) -> anyhow::Result<()> {
     let processes = args
         .iter()
@@ -104,16 +109,18 @@ fn spawn_cmds(
 
     let signal_in_flight = Arc::new(AtomicBool::new(false));
 
-    thread::spawn({
-        let pids = process_ids.clone();
-        let signal_in_flight = signal_in_flight.clone();
-        move || {
-            if let Ok(signal) = signal_receiver.recv() {
-                signal_in_flight.store(true, Ordering::Relaxed);
-                process_killer(pids, signal);
+    if let Some(signal_receiver) = signal_receiver {
+        thread::spawn({
+            let pids = process_ids.clone();
+            let signal_in_flight = signal_in_flight.clone();
+            move || {
+                if let Ok(signal) = signal_receiver.recv() {
+                    signal_in_flight.store(true, Ordering::Relaxed);
+                    process_killer(pids, signal);
+                }
             }
-        }
-    });
+        });
+    }
 
     if kill_others {
         thread::spawn({
@@ -148,8 +155,11 @@ fn status_to_string(status: std::process::ExitStatus) -> String {
     }
 }
 
+#[cfg(unix)]
 #[allow(non_snake_case)]
 fn signal_as_string(sig: i32) -> &'static str {
+    use signal_hook::consts::*;
+
     //TODO: is there a library for SIG to String?
     match sig {
         SIGHUP => "SIGHUP",
@@ -165,6 +175,11 @@ fn signal_as_string(sig: i32) -> &'static str {
         SIGTERM => "SIGTERM",
         _ => "Unknown Signal",
     }
+}
+
+#[cfg(not(unix))]
+fn signal_as_string(sig: i32) -> &'static str {
+    "unkonwn signal"
 }
 
 #[cfg(not(unix))]
