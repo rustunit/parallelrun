@@ -1,6 +1,6 @@
 [package]
 name = "parallelrun"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["extrawurst <mail@rusticorn.com>"]
 description = "Runs several commands concurrently"

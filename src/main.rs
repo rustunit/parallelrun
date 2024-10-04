@@ -43,7 +43,7 @@ struct Arguments {
 fn main() -> anyhow::Result<()> {
     let args = Arguments::parse();
 
-    let mut signals = Signals::new([SIGTERM, SIGINT, SIGHUP, SIGKILL, SIGQUIT])?;
+    let mut signals = Signals::new([SIGTERM, SIGINT, SIGHUP, SIGQUIT])?;
     let (tx, rx) = bounded::<Signal>(1);
 
     thread::spawn(move || {
